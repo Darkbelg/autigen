@@ -21,7 +21,14 @@ agent_guess_number = ConversableAgent(
     human_input_mode="NEVER",
 )
 
-result = agent_with_number.initiate_chat(
-    agent_guess_number,
-    message="I have a number between 1 and 100. Guess it!",
+human_proxy = ConversableAgent(
+    "human_proxy",
+    llm_config=False,  # no LLM used for human proxy
+    human_input_mode="ALWAYS",  # always ask for human input
+)
+
+# Start a chat with the agent with number with an initial guess.
+result = human_proxy.initiate_chat(
+    agent_with_number,  # this is the same agent with the number as before
+    message="10",
 )
