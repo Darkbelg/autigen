@@ -105,7 +105,7 @@ components:
     petstore_auth:
       flows:
         implicit:
-          authorizationUrl: http://swagger.io/oauth/authorize
+          authorizationUrl: https://petstore.swagger.io/oauth/authorize
           scopes:
             read:pets: read your pets
             write:pets: modify pets in your account
@@ -114,10 +114,12 @@ externalDocs:
   description: Find out more about Swagger
   url: http://swagger.io
 info:
-  contact:
-    url: http://swagger.io
-  description: This is a sample server Petstore server. You can find out more about
-    Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net,
+  description: 'This is a sample server Petstore server. You can find out more about
+    Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net, #swagger](http://swagger.io/irc/).
+    For this sample, you can use the api key special-key to test the authorization
+    filters.
+
+    '
   title: Swagger Petstore API
   version: 1.0.7
 openapi: 3.0.0
@@ -129,7 +131,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Pet'
-        required: true
       responses:
         '405':
           description: Invalid input
@@ -140,7 +141,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Pet'
-        required: true
       responses:
         '400':
           description: Invalid ID supplied
@@ -271,7 +271,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Order'
-        required: true
       responses:
         '200':
           description: successful operation
@@ -316,7 +315,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/User'
-        required: true
       responses:
         default:
           description: successful operation
@@ -330,7 +328,6 @@ paths:
               items:
                 $ref: '#/components/schemas/User'
               type: array
-        required: true
       responses:
         default:
           description: successful operation
@@ -344,7 +341,6 @@ paths:
               items:
                 $ref: '#/components/schemas/User'
               type: array
-        required: true
       responses:
         default:
           description: successful operation
@@ -415,7 +411,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/User'
-        required: true
       responses:
         '400':
           description: Invalid user supplied
