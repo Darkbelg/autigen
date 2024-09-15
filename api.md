@@ -1,5 +1,8 @@
 # Functional Specs
 
+## Base
+url: https://example.test
+
 ## Upload image
 ### REQUEST 
 #### URL
