@@ -2,7 +2,7 @@ import os
 
 from autogen import ConversableAgent
 import yaml
-import openapi_spec_validator
+from openapi_spec_validator import validate
 from openapi_spec_validator.readers import read_from_filename
 
 def print_md_file_content(path_to_file: str) -> str:
@@ -59,9 +59,9 @@ def validate_swagger_or_openapi_file(file_path: str) -> str:
     """
     try:
         spec_dict, _ = read_from_filename(file_path)
-        openapi_spec_validator.validate(spec_dict)
+        validate(spec_dict)
         return f"Swagger/OpenAPI file {file_path} is valid"
-    except openapi_spec_validator.exceptions.OpenAPIValidationError as e:
+    except Exception as e:
         return f"Error: {e}"
     except yaml.YAMLError as e:
         return f"Error parsing YAML file: {e}"
@@ -71,7 +71,7 @@ def validate_swagger_or_openapi_file(file_path: str) -> str:
 swagger_agent_system_message = """
 You are a swagger OpenApi documentation generator. You generate docs in YML.
 Do this step by step:
-1 read the markdown file fiven by the user
+1 read the markdown file fiven by the user.
 2 generate the yml in a markdown code block.
 3 reflect
 4 compile the yml and put it into a file called api.yml.
@@ -102,4 +102,4 @@ user_proxy.register_for_execution(name="print_md_file_content")(print_md_file_co
 user_proxy.register_for_execution(name="save_yaml_to_file")(save_yaml_to_file)
 user_proxy.register_for_execution(name="validate_swagger_or_openapi_file")(validate_swagger_or_openapi_file)
 
-chat_result = user_proxy.initiate_chat(swagger_agent, message="Convert 'api.md' to openapi specs.")
+chat_result = user_proxy.initiate_chat(swagger_agent, message="Convert 'petstore.md' to openapi specs.", max_turns = 10)

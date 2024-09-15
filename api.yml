@@ -1,49 +1,239 @@
+components:
+  schemas:
+    ApiResponse:
+      properties:
+        code:
+          format: int32
+          type: integer
+        message:
+          type: string
+        type:
+          type: string
+      type: object
+    Category:
+      properties:
+        id:
+          format: int64
+          type: integer
+        name:
+          type: string
+      type: object
+    Order:
+      properties:
+        complete:
+          type: boolean
+        id:
+          format: int64
+          type: integer
+        petId:
+          format: int64
+          type: integer
+        quantity:
+          format: int32
+          type: integer
+        shipDate:
+          format: date-time
+          type: string
+        status:
+          enum:
+          - placed
+          - approved
+          - delivered
+          type: string
+      type: object
+    Pet:
+      properties:
+        category:
+          $ref: '#/components/schemas/Category'
+        id:
+          format: int64
+          type: integer
+        name:
+          type: string
+        photoUrls:
+          items:
+            type: string
+          type: array
+        status:
+          enum:
+          - available
+          - pending
+          - sold
+          type: string
+        tags:
+          items:
+            $ref: '#/components/schemas/Tag'
+          type: array
+      required:
+      - name
+      - photoUrls
+      type: object
+    Tag:
+      properties:
+        id:
+          format: int64
+          type: integer
+        name:
+          type: string
+      type: object
+    User:
+      properties:
+        email:
+          type: string
+        firstName:
+          type: string
+        id:
+          format: int64
+          type: integer
+        lastName:
+          type: string
+        password:
+          type: string
+        phone:
+          type: string
+        userStatus:
+          format: int32
+          type: integer
+        username:
+          type: string
+      type: object
+  securitySchemes:
+    api_key:
+      in: header
+      name: api_key
+      type: apiKey
+    petstore_auth:
+      flows:
+        implicit:
+          authorizationUrl: http://swagger.io/oauth/authorize
+          scopes:
+            read:pets: read your pets
+            write:pets: modify pets in your account
+      type: oauth2
+externalDocs:
+  description: Find out more about Swagger
+  url: http://swagger.io
 info:
-  title: Example API
-  version: 1.0.0
+  contact:
+    url: http://swagger.io
+  description: This is a sample server Petstore server. You can find out more about
+    Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net,
+  title: Swagger Petstore API
+  version: 1.0.7
 openapi: 3.0.0
 paths:
   /pet:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+        required: true
+      responses:
+        '405':
+          description: Invalid input
+      summary: Add a new pet to the store
+    put:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+        required: true
+      responses:
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Pet not found
+        '405':
+          description: Validation exception
+      summary: Update an existing pet
+  /pet/findByStatus:
     get:
+      parameters:
+      - in: query
+        name: status
+        required: true
+        schema:
+          type: string
       responses:
         '200':
-          content:
-            application/json:
-              schema:
-                properties:
-                  category:
-                    properties:
-                      id:
-                        type: integer
-                      name:
-                        type: string
-                    type: object
-                  id:
-                    type: integer
-                  name:
-                    type: string
-                  photoUrls:
-                    items:
-                      type: string
-                    type: array
-                  status:
-                    enum:
-                    - available
-                    - pending
-                    - sold
-                    type: string
-                  tags:
-                    items:
-                      properties:
-                        id:
-                          type: integer
-                        name:
-                          type: string
-                      type: object
-                    type: array
-                type: object
-          description: Successful response
-      summary: Get pet details
+          description: successful operation
+        '400':
+          description: Invalid status value
+      summary: Finds Pets by status
+  /pet/findByTags:
+    get:
+      parameters:
+      - in: query
+        name: tags
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid tag value
+      summary: Finds Pets by tags (deprecated)
+  /pet/{petId}:
+    delete:
+      parameters:
+      - in: header
+        name: api_key
+        schema:
+          type: string
+      - in: path
+        name: petId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      responses:
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Pet not found
+      summary: Deletes a pet
+    get:
+      parameters:
+      - in: path
+        name: petId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Pet not found
+      summary: Find pet by ID
+    post:
+      parameters:
+      - in: path
+        name: petId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                name:
+                  type: string
+                status:
+                  type: string
+              type: object
+      responses:
+        '405':
+          description: Invalid input
+      summary: Updates a pet in the store with form data
   /pet/{petId}/uploadImage:
     post:
       parameters:
@@ -51,26 +241,191 @@ paths:
         name: petId
         required: true
         schema:
+          format: int64
           type: integer
       requestBody:
         content:
           multipart/form-data:
             schema:
               properties:
+                additionalMetadata:
+                  type: string
                 file:
                   format: binary
                   type: string
               type: object
       responses:
         '200':
-          content:
-            application/json:
-              schema:
-                properties:
-                  petId:
-                    type: integer
-                type: object
-          description: Successful upload
-      summary: Upload an image
+          description: successful operation
+      summary: Uploads an image
+  /store/inventory:
+    get:
+      responses:
+        '200':
+          description: successful operation
+      summary: Returns pet inventories by status
+  /store/order:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+        required: true
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid Order
+      summary: Place an order for a pet
+  /store/order/{orderId}:
+    delete:
+      parameters:
+      - in: path
+        name: orderId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      responses:
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Order not found
+      summary: Delete purchase order by ID
+    get:
+      parameters:
+      - in: path
+        name: orderId
+        required: true
+        schema:
+          format: int64
+          type: integer
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Order not found
+      summary: Find purchase order by ID
+  /user:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+        required: true
+      responses:
+        default:
+          description: successful operation
+      summary: Create user
+  /user/createWithArray:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              items:
+                $ref: '#/components/schemas/User'
+              type: array
+        required: true
+      responses:
+        default:
+          description: successful operation
+      summary: Creates list of users with given input array
+  /user/createWithList:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              items:
+                $ref: '#/components/schemas/User'
+              type: array
+        required: true
+      responses:
+        default:
+          description: successful operation
+      summary: Creates list of users with given input array
+  /user/login:
+    get:
+      parameters:
+      - in: query
+        name: username
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: password
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid username/password supplied
+      summary: Logs user into the system
+  /user/logout:
+    get:
+      responses:
+        default:
+          description: successful operation
+      summary: Logs out current logged in user session
+  /user/{username}:
+    delete:
+      parameters:
+      - in: path
+        name: username
+        required: true
+        schema:
+          type: string
+      responses:
+        '400':
+          description: Invalid username supplied
+        '404':
+          description: User not found
+      summary: Delete user
+    get:
+      parameters:
+      - in: path
+        name: username
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid username supplied
+        '404':
+          description: User not found
+      summary: Get user by user name
+    put:
+      parameters:
+      - in: path
+        name: username
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+        required: true
+      responses:
+        '400':
+          description: Invalid user supplied
+        '404':
+          description: User not found
+      summary: Updated user
+security:
+- api_key: []
+- petstore_auth:
+  - read:pets
+  - write:pets
 servers:
-- url: https://example.test
+- url: https://petstore.swagger.io/v2
