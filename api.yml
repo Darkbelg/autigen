@@ -42,7 +42,7 @@ paths:
                       type: object
                     type: array
                 type: object
-          description: Successful operation
+          description: Successful response
       summary: Get pet details
   /pet/{petId}/uploadImage:
     post:
@@ -66,8 +66,11 @@ paths:
           content:
             application/json:
               schema:
-                type: integer
-          description: Successful operation
-      summary: Upload image
+                properties:
+                  petId:
+                    type: integer
+                type: object
+          description: Successful upload
+      summary: Upload an image
 servers:
 - url: https://example.test
