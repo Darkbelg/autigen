@@ -22,26 +22,26 @@ def print_file_content(path_to_file: str) -> str:
     except IOError as e:
         return f"Error reading file: {e}"
 
-def save_yaml_to_file(yaml_content: dict, file_path: str) -> str:
+def save_yaml_to_file(yaml_content_as_dictionary: dict, file_path: str) -> str:
     """
     Saves YAML content to a file.
     
     Args:
-    yaml_content (dict): The YAML content as a Python dictionary.
+    yaml_content_as_dictionary (dict): The YAML content as a Python dictionary.
     file_path (str): The path to the file where the YAML content will be saved.
     
     Returns:
     str: A success message if the file is saved successfully, or an error message if not.
     """
-    if not isinstance(yaml_content, dict):
-        return "Error: yaml_content must be a dictionary"
+    if not isinstance(yaml_content_as_dictionary, dict):
+        return "Error: yaml_content_as_dictionary must be a dictionary"
 
     if not file_path.endswith('.yml') and not file_path.endswith('.yaml'):
         return "Error: File must have a .yml or .yaml extension"
 
     try:
         with open(file_path, 'w') as file:
-            yaml.dump(yaml_content, file, default_flow_style=False)
+            yaml.dump(yaml_content_as_dictionary, file, default_flow_style=False)
         return f"YAML content saved to {file_path} successfully"
     except yaml.YAMLError as e:
         return f"Error parsing YAML content: {e}"
@@ -112,38 +112,22 @@ def convert_word_to_markdown(docx_path: str) -> str:
 
 swagger_agent_system_message = """
 You are a swagger OpenApi documentation assistant. You generate the documenation and specifications in YML.
-Do this step by step:
-1 Convert the word document to a readme file.
-2 read the generated markdown file.
-3 generate the yml in a markdown code block.
-5 compile the yml and put it into a file called api.yml.
-6 validate the yml file.
-7 Fix any mistakes that come out of the validator.
+
+Go down the markdown file. These are the functional specs.
+Do this step by step. Meaning read the file take the first url and print out the yml in a markdown code block.
+Then start over again until you reach the end of the file.
+
+When you are at the end of the file save it as yml.
+Then validate the yml that you saved.
+If you get errors reflect on it and then fix it.
 
 Return 'TERMINATE' when the conversion is done or you can't complete the task.
-"""
-
-swagger_reviewer_system_message = """
-You are an assistant. Your function is to review the OpenApi specification created with the functional specification.
-Create a list of what is still missing or not correct according to the functional specifications.
-
-Get bogged down in the details.
-If a field is required it should be marked required.
-
-If you don't see any more differeneces return 'TERMINATE'.
 """
 
 swagger_agent= ConversableAgent(
     name="Swagger_Agent",
     system_message=swagger_agent_system_message,
     llm_config={"config_list": [{"model": "gpt-4o", "temperature": 0 ,"api_key": os.environ["OPENAI_API_KEY"]}]},
-    is_termination_msg=lambda msg: msg.get("content") is not None and "TERMINATE" in msg["content"],
-)
-
-swagger_reviewer= ConversableAgent(
-    name="Swagger_Reviewer",
-    system_message=swagger_reviewer_system_message,
-    llm_config={"config_list": [{"model": "gpt-4o", "temperature": 1 ,"api_key": os.environ["OPENAI_API_KEY"]}]},
     is_termination_msg=lambda msg: msg.get("content") is not None and "TERMINATE" in msg["content"],
 )
 
@@ -159,28 +143,11 @@ swagger_agent.register_for_llm(name="save_yaml_to_file", description="Saves YAML
 swagger_agent.register_for_llm(name="validate_swagger_or_openapi_file", description="Validates a Swagger or OpenAPI YAML file.")(validate_swagger_or_openapi_file)
 swagger_agent.register_for_llm(name="convert_word_to_markdown", description="Converts a Word document to a markdown file.")(convert_word_to_markdown)
 
-swagger_reviewer.register_for_llm(name="print_file_content", description="Print the content of a file.")(print_file_content)
-
 user_proxy.register_for_execution(name="print_file_content")(print_file_content)
 user_proxy.register_for_execution(name="save_yaml_to_file")(save_yaml_to_file)
 user_proxy.register_for_execution(name="validate_swagger_or_openapi_file")(validate_swagger_or_openapi_file)
 user_proxy.register_for_execution(name="convert_word_to_markdown")(convert_word_to_markdown)
 
-chat_result = user_proxy.initiate_chats(
-    [
-        { 
-            "recipient": swagger_agent,
-            "message":"Convert 'petstore.docx' to openapi specs.",
-            "max_turns": 10
-        },
-        {
-            "recipient": swagger_reviewer,
-            "message":"Look at 'petstore.md' which is the functional specifications and compare it to 'api.yml'.",
-            "max_turns": 10
-        }
-    ]
-    )
+chat_result = user_proxy.initiate_chat(swagger_agent, message = "Convert 'petstore.md' to openapi specs.", max_turns = 50)
 
-# print(chat_result.cost)
-for result in chat_result:
-    print(result.cost)
+print(chat_result.cost)
