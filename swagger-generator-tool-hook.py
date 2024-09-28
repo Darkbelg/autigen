@@ -5,9 +5,9 @@ import yaml
 import os
 
 
-def validate_swagger_or_openapi_file(file_path: str) -> str:
+def validate_openapi_file(file_path: str) -> str:
     """
-    Validates a Swagger or OpenAPI file.
+    Validates an OpenAPI file.
     
     Args:
     file_path (str): The path to the file to be validated.
@@ -66,7 +66,17 @@ user_proxy = UserProxyAgent(
 )
 
 openapi_generator_system_message = """
-    You are an expert in creating OpenAPI specifications. When asked to generate or fix a 3.0.x OpenAPI spec, provide it in a YAML code block. End your message with TERMINATE.
+    You are an expert in creating OpenAPI specifications.
+    When asked to generate or fix a 3.0.x OpenAPI spec, provide it in a YAML code block. 
+    The YAML code block will be saved in a file called openapi.yml.
+    ONLY ONE CODE BLOCK PER ANSWER. Or you will get stuck in an infinite loop.
+    
+    1. Print the given markdown file.
+    2. Generate a 3.0.x OpenAPI spec YAML code block with the functional specs of the markdown file. Before validating the file. If the file doesn't exist you can't validate it.
+    3. Validate the file generated.
+    4. If there is an error. Think through the error, reflect and fix the error.
+    
+    When finished end your message with TERMINATE.
 """
 
 # Create an assistant agent for OpenAPI generation
@@ -115,15 +125,23 @@ openapi_generator.register_hook(
 )
 
 openapi_generator.register_for_llm(name="print_file_content", description="Print the content of a file.")(print_file_content)
+openapi_generator.register_for_llm(name="validate_openapi_file", description="Validates an OpenAPI file.")(validate_openapi_file)
 
 user_proxy.register_for_execution(name="print_file_content")(print_file_content)
+user_proxy.register_for_execution(name="validate_openapi_file")(validate_openapi_file)
 
 # Initiate the chat
-user_proxy.initiate_chat(
+chat_result = user_proxy.initiate_chat(
     openapi_generator,
     message="Create specs from petstore.md.",
     max_turns = 10
 )
+
+print(chat_result.cost)
+
+
+# for result in chat_result:
+    # print(result.cost)
 
 ## Get the last message from the conversation
 #last_message = user_proxy.last_message()
@@ -133,9 +151,9 @@ user_proxy.initiate_chat(
 #     yaml_content = last_message["content"].split("```yaml", 1)[1].split("```", 1)[0].strip()
 #     save_yaml_to_file(yaml_content)
 
-# openapi_generator.register_for_llm(name="validate_swagger_or_openapi_file", description="Validates a Swagger or OpenAPI YAML file.")(validate_swagger_or_openapi_file)
+# openapi_generator.register_for_llm(name="validate_openapi_file", description="Validates a  or OpenAPI YAML file.")(validate_openapi_file)
 
-# user_proxy.register_for_execution(name="validate_swagger_or_openapi_file")(validate_swagger_or_openapi_file)
+# user_proxy.register_for_execution(name="validate_openapi_file")(validate_openapi_file)
 
 # # openapi_generator.system_message = openapi_generator_system_message
 
