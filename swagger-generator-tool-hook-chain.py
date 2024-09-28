@@ -1,6 +1,7 @@
 from openapi_spec_validator import validate_spec,OpenAPIV30SpecValidator
 from openapi_spec_validator.readers import read_from_filename
 from autogen import ConversableAgent, UserProxyAgent
+from autogen import GroupChat, GroupChatManager
 import yaml
 import os
 
@@ -47,23 +48,57 @@ def print_file_content(path_to_file: str) -> str:
     except IOError as e:
         return f"Error reading file: {e}"
 
-# Configuration for the language model
-# config_list = [
-#     {
-#         "model": "gpt-4o",
-#         "api_key": os.environ.get("OPENAI_API_KEY"),
-#         "cache_seed": None,
-#     }
-# ]
+openapi_generator_system_message = """
+You are an expert in creating OpenAPI specifications.
+When asked to generate or fix a 3.0.x OpenAPI spec, provide it in a YAML code block. 
+The YAML code block will be saved in a file called openapi.yml.
+ONLY ONE CODE BLOCK PER ANSWER. Or you will get stuck in an infinite loop.
+
+Take the feedback of OpenAPIReviewer.
+Print the openapi.yml
+Write out the FULL corrected yml in one code block.
+"""
+
+openapi_reviewer_system_message = """
+You are a helpful AI assistant.
+
+You look for issues between the the functional specifications in petstore.md and the openapi specifications in openapi.yml.
+
+Print the markdown file and the openapi.yml.
+
+Tell OpenAPIGenerator where the issue is and what to fix.
+
+Make this into a table in markdown.
+
+Reply 'NO_ISSUES' in the end when everything is done.
+"""
 
 # Configuration for the language model
 config_list = [
     {
         "model": "gpt-4o",
         "api_key": os.environ.get("OPENAI_API_KEY"),
+        "cache_seed": None,
     }
 ]
 
+# Create an assistant agent for OpenAPI generation
+openapi_generator = ConversableAgent(
+    name="OpenAPIGenerator",
+    system_message=openapi_generator_system_message,
+    llm_config={"config_list": config_list},
+    human_input_mode="NEVER",
+    is_termination_msg=lambda msg: msg.get("content") is not None and "NO_ISSUES" in msg["content"],
+)
+
+# Create a user proxy agent
+openapi_reviewer = ConversableAgent(
+    name="OpenAPIReviewer",
+    system_message=openapi_reviewer_system_message,
+    llm_config={"config_list": config_list},
+    human_input_mode="NEVER",
+    is_termination_msg=lambda msg: msg.get("content") is not None and "NO_ISSUES" in msg["content"],
+)
 
 # Create a user proxy agent
 user_proxy = UserProxyAgent(
@@ -71,30 +106,6 @@ user_proxy = UserProxyAgent(
     llm_config=False,
     human_input_mode="NEVER",
     code_execution_config=False,
-    is_termination_msg=lambda msg: msg.get("content") is not None and "TERMINATE" in msg["content"],
-)
-
-openapi_generator_system_message = """
-    You are an expert in creating OpenAPI specifications.
-    When asked to generate or fix a 3.0.x OpenAPI spec, provide it in a YAML code block. 
-    The YAML code block will be saved in a file called openapi.yml.
-    ONLY ONE CODE BLOCK PER ANSWER. Or you will get stuck in an infinite loop.
-    
-    1. Print the given markdown file.
-    2. Generate a 3.0.x OpenAPI spec YAML code block with the functional specs of the markdown file. Before validating the file. If the file doesn't exist you can't validate it.
-    3. Validate the file generated.
-    4. If there is an error. Think through the error, reflect and fix the error.
-    
-    When finished end your message with TERMINATE.
-"""
-
-# Create an assistant agent for OpenAPI generation
-openapi_generator = ConversableAgent(
-    name="OpenAPIGenerator",
-    system_message=openapi_generator_system_message,
-    llm_config={"config_list": config_list},
-    is_termination_msg=lambda msg: msg.get("content") is not None and "TERMINATE" in msg["content"],
-    human_input_mode="NEVER",
 )
 
 # Function to save YAML content to a file
@@ -117,9 +128,7 @@ def process_messages_and_extract_yaml(messages):
             extract_and_save_yaml(message["content"])
     return messages
 
-def process_message_before_send_and_extract_yaml(sender,message,recipient,silent):
-    print('process_message_before_send_and_extract_yaml')
-    # for message in messages:
+def process_message_before_send_and_extract_yaml(sender, message, recipient, silent):
     if isinstance(message, dict) and "content" in message:
         if message["content"] is not None:
             extract_and_save_yaml(message["content"])
@@ -134,49 +143,31 @@ openapi_generator.register_hook(
 )
 
 openapi_generator.register_for_llm(name="print_file_content", description="Print the content of a file.")(print_file_content)
+openapi_reviewer.register_for_llm(name="print_file_content", description="Print the content of a file.")(print_file_content)
 openapi_generator.register_for_llm(name="validate_openapi_file", description="Validates an OpenAPI file.")(validate_openapi_file)
 
 user_proxy.register_for_execution(name="print_file_content")(print_file_content)
 user_proxy.register_for_execution(name="validate_openapi_file")(validate_openapi_file)
 
-# Initiate the chat
-chat_result = user_proxy.initiate_chat(
+openapi_generator.description="Generates Open API specs."
+openapi_reviewer.description="Review functional specification with the open api specifaction."
+user_proxy.description="Has all the tools."
+
+group_chat = GroupChat(
+    agents=[openapi_generator, openapi_reviewer, user_proxy],
+    messages=[],
+    max_round=10,
+)
+
+group_chat_manager = GroupChatManager(
+    groupchat=group_chat,
+    llm_config={"config_list": [{"model": "gpt-4", "api_key": os.environ["OPENAI_API_KEY"]}]},
+)
+
+chat_result = openapi_reviewer.initiate_chat(
     openapi_generator,
-    message="Create specs from petstore.md.",
-    max_turns = 10
+    message="Start with printing the specifications",
+    summary_method="reflection_with_llm",
 )
 
 print(chat_result.cost)
-
-
-# for result in chat_result:
-    # print(result.cost)
-
-## Get the last message from the conversation
-#last_message = user_proxy.last_message()
-
-# # Check if the last message contains a YAML block and save it
-# if "```yaml" in last_message["content"] and "```" in last_message["content"].split("```yaml", 1)[1]:
-#     yaml_content = last_message["content"].split("```yaml", 1)[1].split("```", 1)[0].strip()
-#     save_yaml_to_file(yaml_content)
-
-# openapi_generator.register_for_llm(name="validate_openapi_file", description="Validates a  or OpenAPI YAML file.")(validate_openapi_file)
-
-# user_proxy.register_for_execution(name="validate_openapi_file")(validate_openapi_file)
-
-# # openapi_generator.system_message = openapi_generator_system_message
-
-# user_proxy.initiate_chat(
-#     openapi_generator,
-#     message="Validate the spec openapi.yml. If there is an error print the content and fix it.",
-#     max_turns = 10
-# )
-
-# # Get the last message from the conversation
-# last_message = user_proxy.last_message()
-
-# # Check if the last message contains a YAML block and save it
-# if "```yaml" in last_message["content"] and "```" in last_message["content"].split("```yaml", 1)[1]:
-#     yaml_content = last_message["content"].split("```yaml", 1)[1].split("```", 1)[0].strip()
-#     save_yaml_to_file(yaml_content)
-
