@@ -8,3 +8,4 @@ RUN pip install pyyaml
 RUN pip install openapi-spec-validator
 RUN pip install python-docx markdown
 RUN pip install mammoth
+RUN pip install openapi-schema-validator

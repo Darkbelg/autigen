@@ -46,5 +46,5 @@ code_writer_agent = ConversableAgent(
 
 chat_result = code_executor_agent.initiate_chat(
     code_writer_agent,
-    message="Write Python code to calculate the 14th Fibonacci number.",
+    message="Write a example open api spec using version 3.1.0. If you get an error that it can't be executed. Ignore it it's normal that you can't execute a yml file.",
 )
