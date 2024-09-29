@@ -49,55 +49,56 @@ When writing php, you must indicate the script type in the code block. The user 
 Put // filename: <filepath/filename> inside the code block as the first line. Don't include multiple code blocks in one response. Do not ask users to copy and paste the result.
 
 1. print out the open api spec openapi.yml
-2. Answer to the USER with a small technical specification on the different resource you should create before generating the code. Group the urls with the same structure like a CRUD resource.
+2. Respond to the USER with a small technical specification on the different resource you should create before generating the code. Group the urls with the same structure like a CRUD resource.
 3. Then execute the technical specification.
-    1. Create an interface for the adapter clas
-    2. Create the adapter class implementing the interface
+    1. Create a data class for the adapter
+    2. Create an interface for the adapter class
+    3. Create the adapter class implementing the interface
         - In the constructor add dependency injection. Add a property public Api $api.
-    3. Create an service class that is a pass through to the adapter class. The user will change this code in the future for specific logic.
+    4. Create a data class for the service
+    5. Create an service class that is a pass through to the adapter class. The user will change this code in the future for specific logic.
         - Add the adapter as dependency injection. (Do not worry about the specifics in appserviceprovider this is for the user.)
-4. Repeat step 4 until you have done all URL resources.
-5. Reflect
+4. Respond with your answer.
+5. Repeat step 3 until you have done all URL resources.
+6. Reflect
 
 Example:
 ```php
-// filenam: app/Example/Service/ExampleService.php
-<?php 
-namespace App\Example\Service;
+// filenam: app/Example/Adapter/Contract/ExampleData.php
+<?php
 
-use Api;
-use App\Example\Adapter\ExampleAdapter;
+namespace App\Example\Adapter\Contract;
 
-class ExampleService
+use Spatie\LaravelData\Attributes\MapInputName;
+use Spatie\LaravelData\Data;
+
+class ExampleData extends Data
 {
     public function __construct(
-        public ExampleAdapter $exampleAdapter
-    ) {
-    }
+        #[MapInputName('id')]
+        public int $id,
 
-    public function index(){
-        return $this->exampleAdapter->index();
-    }
+        #[MapInputName('username')]
+        public string $username,
 
-    public function show(string $id){
-        return $this->exampleAdapter->show($id);
-    }
+        #[MapInputName('firstName')]
+        public string $firstName,
 
-    public function create(array $exampleObject){
-        return $this->exampleAdapter->create($exampleObject);
-    }
+        #[MapInputName('lastName')]
+        public string $lastName,
 
-    public function update(array $exampleObject){
-        return $this->exampleAdapter->update($exampleObject);
-    }
+        #[MapInputName('email')]
+        public string $email,
 
-    public function delete(string $id){
-        return $this->exampleAdapter->delete($id);
-    }
+        #[MapInputName('password')]
+        public string $password,
 
-    public function setIsSick(string $id, bool $isSick){
-        return $this->exampleAdapter->setIsSick($id, $isSick);
-    }
+        #[MapInputName('phone')]
+        public string $phone,
+
+        #[MapInputName('userStatus')]
+        public int $userStatus,
+    ) {}
 }
 ```
 
@@ -107,6 +108,7 @@ class ExampleService
 namespace App\Example\Adapter\Contract;
 
 use Api;
+use App\Example\Adapter\Contract\ExampleData;
 
 interface ExampleAdapter
 {
@@ -118,7 +120,7 @@ interface ExampleAdapter
     };
 
     public function show(string $id){
-    };
+    }:ExampleData;
 
     public function create(array $exampleObject){
     };
@@ -141,6 +143,7 @@ namespace App\Example\Adapter;
 
 use Api;
 use App\Example\Adapter\Contract\ExampleAdapter as ExampleAdapterInterface;
+use App\Example\Adapter\Contract\ExampleData;
 
 class ExampleAdapter implements ExampleAdapterInterface {
 
@@ -167,7 +170,7 @@ class ExampleAdapter implements ExampleAdapterInterface {
             $this->handleResponseTrait($response);
         }
 
-        return $response['items'];
+        return collect($response['items'])->map(fn ($item) => ExampleData::from($item));
     }
 
     public function show(string $id){
@@ -177,7 +180,7 @@ class ExampleAdapter implements ExampleAdapterInterface {
             $this->handleResponseTrait($response);
         }
 
-        return $response['item'];
+        return collect($response['item'])->map(fn ($item) => ExampleData::from($item));
     }
 
     public function create(array $exampleObject){
@@ -186,7 +189,7 @@ class ExampleAdapter implements ExampleAdapterInterface {
             $this->handleResponseTrait($response);
         }
 
-        return $response['item'];
+        return collect($response['item'])->map(fn ($item) => ExampleData::from($item));
     }
 
     public function update(array $exampleObject){
@@ -195,7 +198,7 @@ class ExampleAdapter implements ExampleAdapterInterface {
             $this->handleResponseTrait($response);
         }
 
-        return $response['item'];
+        return collect($response['item'])->map(fn ($item) => ExampleData::from($item));
     }
 
     public function delete(string $id){
@@ -203,8 +206,6 @@ class ExampleAdapter implements ExampleAdapterInterface {
         if(!$response->isSuccesull()){
             $this->handleResponseTrait($response);
         }
-
-        return $response['item'];
     }
 
     public function setIsSick(string $id, bool $isSick){
@@ -213,7 +214,71 @@ class ExampleAdapter implements ExampleAdapterInterface {
             $this->handleResponseTrait($response);
         }
 
-        return $response['item'];
+        return collect($response['item'])->map(fn ($item) => ExampleData::from($item));
+    }
+}
+```
+
+```php
+// filenam: app/Example/Service/Contract/ExampleData.php
+<?php
+
+namespace App\Example\Service\Contract;
+
+use Spatie\LaravelData\Attributes\MapInputName;
+use App\Example\Adapter\Contract\ExampleData as ExampleDataAdapter;
+use Spatie\LaravelData\Data;
+
+class ExampleData extends Data
+{
+    public function __construct(
+        public readonly ExampleDataAdapter $adapter,
+    ) {}
+
+    public static function fromExampleDataAdapter(ExampleDataAdapter $exampleDataAdapter){
+        return new self($exampleDataAdapter);
+    }
+}
+```
+
+```php
+// filenam: app/Example/Service/ExampleService.php
+<?php 
+namespace App\Example\Service;
+
+use Api;
+use App\Example\Adapter\ExampleAdapter;
+use App\Example\Service\Contract\ExampleData;
+
+class ExampleService
+{
+    public function __construct(
+        public ExampleAdapter $exampleAdapter
+    ) {
+    }
+
+    public function index(){
+        return collect($this->exampleAdapter->index())->map(fn($items) => ExampleData::from($item));
+    }
+
+    public function show(string $id){
+        return ExampleData::from($this->exampleAdapter->show($id));
+    }
+
+    public function create(array $exampleObject){
+        return ExampleData::from($this->exampleAdapter->create($exampleObject));
+    }
+
+    public function update(array $exampleObject){
+        return ExampleData::from($this->exampleAdapter->update($exampleObject));
+    }
+
+    public function delete(string $id){
+        return $this->exampleAdapter->delete($id);
+    }
+
+    public function setIsSick(string $id, bool $isSick){
+        return ExampleData::from($this->exampleAdapter->setIsSick($id, $isSick));
     }
 }
 ```
