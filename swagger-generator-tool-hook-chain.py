@@ -1,4 +1,4 @@
-from openapi_spec_validator import validate_spec,OpenAPIV30SpecValidator
+from openapi_spec_validator import validate_spec,OpenAPIV31SpecValidator
 from openapi_spec_validator.readers import read_from_filename
 from autogen import ConversableAgent, UserProxyAgent
 from autogen import GroupChat, GroupChatManager
@@ -17,10 +17,10 @@ def validate_openapi_file(file_path: str) -> str:
     """
     try:
         spec_dict, _ = read_from_filename(file_path)
-        validate_spec(spec_dict, cls=OpenAPIV30SpecValidator)
+        validate_spec(spec_dict, cls=OpenAPIV31SpecValidator)
         
         # If we reach this point, the file is valid
-        return f"Success: The OpenAPI 3.0 file '{file_path}' is valid."
+        return f"Success: The OpenAPI 3.1 file '{file_path}' is valid."
     
     except yaml.YAMLError as e:
         return f"Error: Unable to parse YAML in '{file_path}'. Details: {str(e)}"
@@ -49,29 +49,39 @@ def print_file_content(path_to_file: str) -> str:
 
 openapi_generator_system_message = """
 You are a helpful AI assistant. You generate OpenAPI specifications.
-When asked to generate or fix a 3.0.x OpenAPI spec, provide it in a YAML code block. 
+When asked to generate or fix a 3.1.0 OpenAPI spec, provide it in a YAML code block. 
 The YAML code block will be saved in a file called openapi.yml.
 ONLY ONE CODE BLOCK PER ANSWER. Or you will get stuck in an infinite loop.
 
+Steps:
 1. Print the given markdown file.
-2. Generate a 3.0.x OpenAPI spec YAML code block with the functional specs of the markdown file. Before validating the file. If the file doesn't exist you can't validate it.
+2. Generate a 3.1.0 OpenAPI spec YAML code block with the functional specs of the markdown file. Before validating the file. If the file doesn't exist you can't validate it.
 3. Validate the file generated.
 4. If there is an error. Think through the error, reflect and fix the error.
 5. Tell OpenAPIReviewer to start the review process.
-6. Take the feedback and change the YAML code block.
+6. Take the feedback and change the YAML code block and validate the file generated.
 
 """
 
 openapi_reviewer_system_message = """
 You are a helpful AI assistant.
-
 You look for issues between the the functional specifications in petstore.md and the openapi specifications in openapi.yml.
-Make this into a table in markdown. Make sure to check the details. For example if a method is marked deprecated and the there is one property in the OpenAPI spec to mark a url deprecated it should be used and not just be put in the description of the url.
+Make this into a table in markdown. Make sure to check the details.
 Tell OpenAPIGenerator where the issue is and what to fix.
 
+Extra Guidelines for the perfect Open API specification:
+- Example if a method is marked deprecated and the there is one property in the OpenAPI spec to mark a url deprecated it should be used and not just be put in the description of the url.
+- Make sure all urls that have the same root url are tagged with that url. So /user or /user/id should have a tag user.
+
+Steps:
 1. Give the feedback
 2. Wait for the correction
-3. If satisfied or all issues are marked complete and your message with NO_ISSUES.
+3. Reflect and make sure the changes do not introduce new differences.
+4. If satisfied or all issues are marked complete and your message with NO_ISSUES.
+
+NO_ISSUES will end the conversation.
+
+DO NOT OUTPUT YAML.
 """
 
 # Configuration for the language model
